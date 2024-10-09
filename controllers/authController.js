@@ -7,21 +7,32 @@ const createUserObj = (email, name, password, role)=>{
     return { email, name, password, role };
 }
 
+const prepareResponseObject = (data)=>{
+    const responseData = [];
+    data.forEach( admin => responseData.push({ id:admin.id, name:admin.name, email:admin.email }));
+    return responseData;
+}
+
 const registerUser = async(req, res) => {
     const { email, name, password, role } = req.body;
 
+    // Server Side Validation
     if(!(name && password && email && role )) return res.status(400).send({ "error": "Incomplete Information" });
-    
+
+    // Checking If user already exists
     let user = await User.findOne({ email });
     if(user) return res.status(403).json({ "error":"User Already Exists "});
 
+    // Creating a Hashed Password
     const hash = await bcrypt.hash(password,12);
 
     try {
+        // Storing User in the database
         const userObj = createUserObj( email, name, hash, role );
         const newUser = new User(userObj);
         await newUser.save();
 
+        // Creating a JWT Token to authorize the user for future requests
         const token = jwt.sign({ id:newUser.id, name, email },process.env.SECRET,{expiresIn:'1h'});
         res.status(201).json({ message:"User Created Successfully", token });
     }
@@ -58,8 +69,7 @@ const loginUser = async(req, res) => {
 const returnAdmins = async(req, res)=>{
     try{
         const data = await User.find({ role:"admin" });
-        const responseData = [];
-        data.forEach( admin => responseData.push({ id:admin.id, name:admin.name, email:admin.email }))
+        let responseData = prepareResponseObject(data);
         return res.json(responseData);
     }catch(e){
         console.log(e);
